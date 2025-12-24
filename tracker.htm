@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elite Habit Tracker - Clean Slate</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* SaaS Professional Color Palette */
+            --primary: #10b981;       /* Emerald Green (Success) */
+            --primary-dark: #059669;
+            --secondary: #6366f1;     /* Indigo (Mood) */
+            --accent: #f59e0b;        /* Amber (Motivation) */
+            --bg-body: #f3f4f6;       /* Light Gray Background */
+            --bg-card: #ffffff;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --danger: #ef4444;
+            --highlight: #ecfdf5;     /* Light Green highlight */
+            --today-highlight: #fff7ed; /* Light Orange for current day */
+            --today-border: #fdba74;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* --- BUTTONS & CONTROLS --- */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+        
+        .brand { font-size: 1.5rem; font-weight: 700; color: var(--text-main); letter-spacing: -0.5px; }
+        .brand span { color: var(--primary); }
+
+        .btn-group { display: flex; gap: 10px; }
+        
+        button {
+            padding: 10px 16px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);
+        }
+
+        .btn-primary { background-color: var(--text-main); color: white; }
+        .btn-primary:hover { background-color: #000; }
+        
+        .btn-outline { background-color: white; border-color: var(--border); color: var(--text-main); }
+        .btn-outline:hover { background-color: #f9fafb; border-color: #d1d5db; }
+
+        .btn-danger { background-color: white; border-color: var(--border); color: var(--danger); }
+        .btn-danger:hover { background-color: #fef2f2; border-color: var(--danger); }
+
+        /* --- DASHBOARD CARDS --- */
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            border: 1px solid var(--border);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+        
+        .p-4 { padding: 20px; }
+        .p-0 { padding: 0; }
+
+        /* --- HEADER STATS --- */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 1fr 2fr;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .month-display {
+            font-size: 1.875rem;
+            font-weight: 800;
+            color: var(--text-main);
+            letter-spacing: -1px;
+        }
+
+        .stat-box { text-align: center; }
+        .stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600; margin-bottom: 4px; }
+        .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
+
+        .progress-wrapper { width: 100%; }
+        .progress-header { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.875rem; font-weight: 600; }
+        .progress-track { background: #e5e7eb; border-radius: 999px; height: 12px; overflow: hidden; }
+        .progress-fill { background: var(--primary); height: 100%; width: 0%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        /* --- GRID LAYOUT --- */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 3.5fr 1fr;
+            gap: 24px;
+        }
+
+        /* --- TABLE STYLES --- */
+        table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        th, td { border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); text-align: center; padding: 8px; vertical-align: middle; }
+        tr:last-child td { border-bottom: none; }
+        th:last-child, td:last-child { border-right: none; }
+
+        .habit-header { text-align: left; padding-left: 16px; width: 200px; background: #f9fafb; font-weight: 600; color: var(--text-muted); position: sticky; left: 0; z-index: 10; }
+        .day-header { font-size: 0.8rem; color: var(--text-muted); background: #f9fafb; height: 30px; }
+        
+        .habit-name { text-align: left; padding-left: 16px; font-weight: 500; color: var(--text-main); background: #fff; position: sticky; left: 0; z-index: 10; border-right: 2px solid var(--border); }
+        .habit-name:hover .del-btn { opacity: 1; }
+        
+        .del-btn { float: right; color: var(--danger); opacity: 0; cursor: pointer; font-size: 1.1rem; padding: 0 8px; transition: opacity 0.2s; }
+        
+        .check-box { cursor: pointer; height: 36px; transition: background 0.1s; color: transparent; font-size: 1.2rem; }
+        .check-box:hover { background: #f9fafb; }
+        .checked { background-color: var(--highlight) !important; color: var(--primary) !important; }
+        .today-col { background-color: var(--today-highlight); border-left: 2px solid var(--today-border); border-right: 2px solid var(--today-border); }
+
+        /* Empty State */
+        .empty-state { text-align: center; color: var(--text-muted); padding: 40px; font-style: italic; }
+
+        /* --- ANALYSIS SIDEBAR --- */
+        .sidebar-header { display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); padding-bottom: 10px; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+        .analysis-item { display: flex; align-items: center; margin-bottom: 12px; font-size: 0.85rem; }
+        .bar-bg { flex: 1; height: 8px; background: #e5e7eb; border-radius: 4px; margin-left: 10px; overflow: hidden; }
+        .bar-fg { height: 100%; background: var(--primary); border-radius: 4px; }
+
+        /* --- CHARTS --- */
+        .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .chart-wrapper { height: 220px; width: 100%; }
+        
+        /* --- MOOD INPUTS --- */
+        .mood-input { width: 100%; border: none; text-align: center; font-weight: 600; outline: none; background: transparent; }
+        .mood-input:focus { background: #eff6ff; }
+        
+        /* --- SUMMARY ROWS --- */
+        .summary-label { text-align: left; padding-left: 16px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); background: #f9fafb; }
+        .summary-val { font-size: 0.75rem; color: var(--text-muted); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="top-bar">
+        <div class="brand">My<span>Habits</span></div>
+        <div class="btn-group">
+            <button class="btn-primary" onclick="addHabit()">+ Add Habit</button>
+            <button class="btn-outline" onclick="exportData()">⬇ Export</button>
+            <button class="btn-danger" onclick="resetData()">⚠ Reset</button>
+        </div>
+    </div>
+
+    <div class="card p-4">
+        <div class="stats-grid">
+            <div class="month-display" id="displayMonth">Loading...</div>
+            <div class="stat-box">
+                <div class="stat-label">Total Habits</div>
+                <div class="stat-value" id="countHabits">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Total Completed</div>
+                <div class="stat-value" id="countCompleted">0</div>
+            </div>
+            <div class="stat-box" style="text-align: left;">
+                <div class="progress-wrapper">
+                    <div class="progress-header">
+                        <span>Monthly Accuracy</span>
+                        <span id="txtProgress">0%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" id="barProgress"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-layout">
+        <div class="card p-0" style="overflow-x: auto;">
+            <table id="habitTable">
+                <thead id="tableHead"></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+
+        <div class="card p-4">
+            <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--text-main);">Performance Analysis</h3>
+            <div class="sidebar-header">
+                <span style="width:30px">Goal</span>
+                <span style="width:30px">Act</span>
+                <span style="flex:1; text-align:right">Progress</span>
+            </div>
+            <div id="analysisContent">
+                <div class="empty-state" style="padding: 20px 0; font-size: 0.8rem;">Add habits to see analysis.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-4">
+        <div style="margin-bottom: 20px; overflow-x: auto;">
+            <table id="summaryTable" style="font-size: 0.85rem;"></table>
+        </div>
+        
+        <div class="chart-grid">
+            <div>
+                <h4 style="margin: 0 0 10px 0; font-size: 0.9rem; color: var(--text-muted);">Daily Consistency</h4>
+                <div class="chart-wrapper">
+                    <canvas id="chartProgress"></canvas>
+                </div>
+            </div>
+            <div>
+                <h4 style="margin: 0 0 10px 0; font-size: 0.9rem; color: var(--text-muted);">Mental Well-being (1-10)</h4>
+                <div class="chart-wrapper">
+                    <canvas id="chartMood"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 20px; overflow-x: auto;">
+            <table id="moodTable"></table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 1. CONFIG & AUTOMATIC DATE LOGIC ---
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-11
+    const currentDay = now.getDate();
+    
+    // Calculate days in current month dynamically
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthId = `${currentYear}-${currentMonth}`; // Unique Key for LocalStorage
+    
+    document.getElementById('displayMonth').innerText = `${monthNames[currentMonth]} ${currentYear}`;
+
+    // --- 2. STATE MANAGEMENT (START EMPTY) ---
+    // Initialize with EMPTY array [] instead of demo data
+    let habits = JSON.parse(localStorage.getItem('myHabits')) || []; 
+    let checks = JSON.parse(localStorage.getItem('myChecks')) || {};
+    let moodData = JSON.parse(localStorage.getItem('myMood')) || {};
+
+    // Ensure mood data structure exists for this month, even if empty
+    if (!moodData[monthId]) {
+        moodData[monthId] = { mood: Array(daysInMonth).fill(null), motivation: Array(daysInMonth).fill(null) };
+    }
+
+    // Chart Instances
+    let chartP = null;
+    let chartM = null;
+
+    // --- 3. CORE FUNCTIONS ---
+
+    function init() {
+        renderTable();
+        renderAnalysis();
+        renderSummary();
+        renderMoodInputs();
+        updateStats();
+        updateCharts();
+    }
+
+    function saveData() {
+        localStorage.setItem('myHabits', JSON.stringify(habits));
+        localStorage.setItem('myChecks', JSON.stringify(checks));
+        localStorage.setItem('myMood', JSON.stringify(moodData));
+        updateStats(); 
+    }
+
+    function addHabit() {
+        const name = prompt("Enter habit name (e.g., 'Read 10 mins'):");
+        if (name) {
+            const icon = prompt("Enter an emoji (optional):") || "📝";
+            habits.push({name, icon});
+            saveData();
+            init();
+        }
+    }
+
+    function deleteHabit(idx) {
+        if(confirm("Delete this habit permanently?")) {
+            habits.splice(idx, 1);
+            saveData();
+            init(); // Full re-render
+        }
+    }
+
+    function toggleCheck(hIdx, day) {
+        const key = `${monthId}_${hIdx}_${day}`;
+        if(checks[key]) {
+            delete checks[key];
+        } else {
+            checks[key] = true;
+            checkVictory(day); // 🎉 TRIGGER CONFETTI CHECK
+        }
+        saveData();
+        // Optimize rendering by not reloading everything
+        renderTable(); 
+        renderAnalysis(); 
+        renderSummary();
+        updateCharts();
+    }
+
+    // --- 4. GAMIFICATION: CONFETTI LOGIC ---
+    function checkVictory(day) {
+        if(habits.length === 0) return;
+
+        // Calculate completion for this specific day
+        let done = 0;
+        habits.forEach((_, idx) => {
+            if(checks[`${monthId}_${idx}_${day}`]) done++;
+        });
+        
+        // If all habits done for today -> Confetti!
+        if(done === habits.length) {
+            confetti({
+                particleCount: 150,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#10b981', '#6366f1', '#f59e0b']
+            });
+        }
+    }
+
+    function updateMood(type, day, val) {
+        moodData[monthId][type][day-1] = val ? parseInt(val) : null;
+        saveData();
+        updateCharts();
+    }
+
+    function exportData() {
+        const data = { habits, checks, moodData };
+        const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `habits_backup_${monthId}.json`;
+        a.click();
+    }
+
+    function resetData() {
+        if(confirm("⚠ WARNING: This will delete ALL data and reset the tracker to blank. Continue?")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
+
+    // --- 5. RENDER LOGIC ---
+
+    function renderTable() {
+        const thead = document.getElementById('tableHead');
+        const tbody = document.getElementById('tableBody');
+        
+        // Header Row
+        let headHTML = `<tr><th class="habit-header" style="background:#fff">Habits</th>`;
+        for(let d=1; d<=daysInMonth; d++) {
+            const isToday = d === currentDay ? 'today-col' : '';
+            headHTML += `<th class="day-header ${isToday}">${d}</th>`;
+        }
+        headHTML += `</tr>`;
+        thead.innerHTML = headHTML;
+
+        // Body Rows
+        if (habits.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="${daysInMonth+1}" class="empty-state">No habits yet. Click <b>+ Add Habit</b> to get started.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = habits.map((h, hIdx) => {
+            let row = `<tr><td class="habit-name">${h.icon} ${h.name} <span class="del-btn" onclick="deleteHabit(${hIdx})">×</span></td>`;
+            for(let d=1; d<=daysInMonth; d++) {
+                const key = `${monthId}_${hIdx}_${d}`;
+                const isChecked = checks[key] ? 'checked' : '';
+                const isToday = d === currentDay ? 'today-col' : '';
+                row += `<td class="check-box ${isChecked} ${isToday}" onclick="toggleCheck(${hIdx}, ${d})">✔</td>`;
+            }
+            return row + `</tr>`;
+        }).join('');
+    }
+
+    function renderAnalysis() {
+        const div = document.getElementById('analysisContent');
+        if (habits.length === 0) {
+            div.innerHTML = '<div class="empty-state" style="padding: 20px 0; font-size: 0.8rem;">Add habits to see analysis.</div>';
+            return;
+        }
+
+        div.innerHTML = habits.map((h, hIdx) => {
+            let count = 0;
+            for(let d=1; d<=daysInMonth; d++) if(checks[`${monthId}_${hIdx}_${d}`]) count++;
+            const pct = Math.round((count/daysInMonth)*100);
+            return `
+                <div class="analysis-item">
+                    <div style="width:30px; color:var(--text-muted)">${daysInMonth}</div>
+                    <div style="width:30px; font-weight:bold">${count}</div>
+                    <div class="bar-bg"><div class="bar-fg" style="width:${pct}%"></div></div>
+                </div>`;
+        }).join('');
+    }
+
+    function renderSummary() {
+        const table = document.getElementById('summaryTable');
+        if(habits.length === 0) {
+            table.innerHTML = "";
+            return;
+        }
+
+        // Calculate daily stats
+        let doneArr = [], notDoneArr = [], progArr = [];
+        for(let d=1; d<=daysInMonth; d++) {
+            let c = 0;
+            habits.forEach((_, i) => { if(checks[`${monthId}_${i}_${d}`]) c++; });
+            doneArr.push(c);
+            notDoneArr.push(habits.length - c);
+            progArr.push(habits.length ? Math.round((c/habits.length)*100) + '%' : '0%');
+        }
+
+        const makeRow = (lbl, arr) => `<tr><td class="summary-label">${lbl}</td>${arr.map(v => `<td class="summary-val">${v}</td>`).join('')}</tr>`;
+        
+        table.innerHTML = 
+            makeRow('Progress', progArr) +
+            makeRow('Done', doneArr) +
+            makeRow('Not Done', notDoneArr);
+    }
+
+    function renderMoodInputs() {
+        const table = document.getElementById('moodTable');
+        const makeInputRow = (label, type) => {
+            let html = `<tr><td class="habit-header" style="min-width:150px">${label}</td>`;
+            for(let d=1; d<=daysInMonth; d++) {
+                const val = moodData[monthId][type][d-1] || '';
+                html += `<td><input type="number" min="1" max="10" class="mood-input" value="${val}" onchange="updateMood('${type}', ${d}, this.value)"></td>`;
+            }
+            return html + '</tr>';
+        };
+        table.innerHTML = makeInputRow('Mood', 'mood') + makeInputRow('Motivation', 'motivation');
+    }
+
+    // --- 6. STATS & GRAPHS ---
+
+    function updateStats() {
+        let totalChecks = 0;
+        habits.forEach((_, hIdx) => {
+            for(let d=1; d<=daysInMonth; d++) {
+                if(checks[`${monthId}_${hIdx}_${d}`]) totalChecks++;
+            }
+        });
+        const totalPossible = habits.length * daysInMonth;
+        const pct = (totalPossible > 0) ? ((totalChecks/totalPossible)*100).toFixed(1) : 0;
+
+        document.getElementById('countHabits').innerText = habits.length;
+        document.getElementById('countCompleted').innerText = totalChecks;
+        document.getElementById('txtProgress').innerText = pct + "%";
+        document.getElementById('barProgress').style.width = pct + "%";
+    }
+
+    function updateCharts() {
+        const labels = Array.from({length: daysInMonth}, (_, i) => i + 1);
+        
+        // Data for Progress Chart
+        const progressData = labels.map(day => {
+            if(habits.length === 0) return 0;
+            let c = 0;
+            habits.forEach((_, i) => { if(checks[`${monthId}_${i}_${day}`]) c++; });
+            return (c/habits.length)*100;
+        });
+
+        // 1. Progress Chart
+        const ctxP = document.getElementById('chartProgress').getContext('2d');
+        if(chartP) chartP.destroy();
+        chartP = new Chart(ctxP, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Completion %',
+                    data: progressData,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 2
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { display: false } } }
+        });
+
+        // 2. Mood Chart
+        const ctxM = document.getElementById('chartMood').getContext('2d');
+        if(chartM) chartM.destroy();
+        chartM = new Chart(ctxM, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Mood', data: moodData[monthId].mood, borderColor: '#6366f1', tension: 0.4 },
+                    { label: 'Motivation', data: moodData[monthId].motivation, borderColor: '#f59e0b', tension: 0.4 }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 10 } } }
+        });
+    }
+
+    // Start App
+    init();
+
+</script>
+</body>
+</html>
+
